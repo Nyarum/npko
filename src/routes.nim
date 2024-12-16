@@ -1,4 +1,4 @@
-import patty
+import patty, macros
 
 type
     IncomePacket = object of RootObj
@@ -14,8 +14,14 @@ type
     Chars * = object of OutcomePacket
 
 macro unifiedPack(procName: string): untyped =
-  result = quote do:
-    echo "Finished packing"
+    result = quote do:
+        proc `procName`(packets: seq[OutcomePacket]) =
+            for pkt in packets:
+                case pkt of `OutcomePacket`:
+                    echo "Generic OutcomePacket (fallback)"
+                else:
+                    discard  # Avoid match error for unsupported types
+      echo "Finished packing"
 
   let casesNode = result[0][1][0][2][1] # Access the "case pkt of" node
 
