@@ -1,4 +1,5 @@
 import  strformat, strutils, net, asyncdispatch, asyncnet
+import ./routes
 
 proc handleClient(client: AsyncSocket) {.async.} =
   defer:
@@ -39,5 +40,7 @@ proc startServer(port: Port) {.async.} =
       break
 
 when isMainModule:
-  asyncCheck startServer(8085.Port)
-  runForever()
+  let fd = FirstDate(date: "test")
+  fd.route.pack
+  #asyncCheck startServer(8085.Port)
+  #runForever()

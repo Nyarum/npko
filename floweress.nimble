@@ -13,3 +13,4 @@ bin           = @["floweress"]
 requires "nim >= 2.2.0"
 
 requires "weave >= 0.4.10"
+requires "patty >= 0.3.5"
