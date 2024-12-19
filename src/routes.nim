@@ -1,40 +1,64 @@
-import patty, macros
+import patty, macros, times, strformat, streams, endians
+
+type
+    Header* = object
+        len: uint16
+        id: uint32
+        opcode: uint16
+        data: string
 
 type
     IncomePacket = object of RootObj
 
-    Auth * = object of IncomePacket
+    Auth* = object of IncomePacket
 
 type
     OutcomePacket = object of RootObj
 
-    FirstDate * = object of OutcomePacket
-        date *: string
+    FirstDate* = object of OutcomePacket
+        date*: string
 
-    Chars * = object of OutcomePacket
+    Chars* = object of OutcomePacket
 
-macro unifiedPack(procName: string): untyped =
-    result = quote do:
-        proc `procName`(packets: seq[OutcomePacket]) =
-            for pkt in packets:
-                case pkt of `OutcomePacket`:
-                    echo "Generic OutcomePacket (fallback)"
-                else:
-                    discard  # Avoid match error for unsupported types
-      echo "Finished packing"
+proc getFirstDate*(): FirstDate =
+  let timeNow = now()
+  let milliseconds = timeNow.nanosecond div 1_000_000
+  let formatedTime = timeNow.format("MM-dd HH:mm:ss")
+  return FirstDate(date: fmt"{formatedTime}:{milliseconds:03}")
 
-  let casesNode = result[0][1][0][2][1] # Access the "case pkt of" node
+proc write*[T](s: Stream, x: T, swapEndian: bool) =
+  ## Generic write procedure. Writes `x` to the stream `s` after converting to big-endian format.
+  ## Implementation swaps endianness before writing to ensure consistent cross-platform representation.
+  var temp: T = x
+  when sizeof(T) == 2:
+    swapEndian16(addr temp, addr x)
+  elif sizeof(T) == 4:
+    swapEndian32(addr temp, addr x)
+  elif sizeof(T) == 8:
+    swapEndian64(addr temp, addr x)
+  else:
+    # For types that don't need endian conversion or unsupported sizes
+    temp = x
+    
+  writeData(s, addr temp, sizeof(T))
 
-  for typ in bindSym("OutcomePacket").symbol.typeInst.typeDesc.fields:
-    let caseNode = quote do:
-      `typ.name`:
-        pack(cast[`typ.name`](pkt))
-    casesNode.add caseNode
+proc pack*(opcode: uint16, packet: string): string =
+    var stream = newStringStream()
+    stream.write(packet.len.uint16 + 6.uint16, true)
+    stream.write(80.uint32)
+    stream.write(opcode, true)
+    stream.write(packet)
+    return stream.data
 
-proc pack *(packet: Chars) =
+proc pack*(packet: FirstDate): string =
+    var stream = newStringStream()
+    stream.write(packet.date)
+    return stream.data
+
+proc pack*(packet: Chars): string =
     echo "pack chars"
 
-proc pack *(packets: seq[OutcomePacket]) =
+proc pack*(packets: seq[OutcomePacket]) =
     for pkt in packets:
         echo typeof(pkt)
         when pkt is Chars:
@@ -42,6 +66,8 @@ proc pack *(packets: seq[OutcomePacket]) =
 
     echo "pack"
 
-proc route *(packet: FirstDate): seq[OutcomePacket] =
+proc route*(packet: Auth): seq[string] =
     echo "test"
-    return cast[seq[OutcomePacket]](@[Chars()])
+    
+    return @[Chars().pack]
+    
